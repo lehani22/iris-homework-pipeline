@@ -1,0 +1,62 @@
+name: IRIS Pipeline CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Pytest
+        run: |
+          pytest --junitxml=pytest-report.xml
+        continue-on-error: true
+
+      - name: Run Pipeline and generate metrics
+        run: |
+          python pipeline.py
+        continue-on-error: true
+
+      - name: Setup CML
+        uses: iterative/setup-cml@v2
+
+      - name: Create CML Report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## CI Report for IRIS Pipeline" > report.md
+          echo "### Pytest Results" >> report.md
+          if [ -f pytest-report.xml ]; then
+            echo '```xml' >> report.md
+            cat pytest-report.xml >> report.md
+            echo '```' >> report.md
+          else
+            echo "Pytest report not found." >> report.md
+          fi
+
+          echo "### Pipeline Execution Metrics" >> report.md
+          if [ -f metrics.txt ]; then
+            echo '```' >> report.md
+            cat metrics.txt >> report.md
+            echo '```' >> report.md
+          else
+            echo "Pipeline metrics not generated." >> report.md
+          fi
+          cml comment create report.md
