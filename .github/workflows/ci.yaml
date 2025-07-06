@@ -37,11 +37,11 @@ jobs:
 
       - name: Pre-install numpy (required before scikit-learn)
         run: |
-          pip install numpy==1.24.4
+          pip install numpy>=1.24.4
 
       - name: Install remaining dependencies
         run: |
-          pip install -r requirements.txt
+          pip install --use-pep517 --no-build-isolation -r requirements.txt
 
       - name: Run Pytest
         run: |
