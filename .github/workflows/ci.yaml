@@ -29,16 +29,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
 
-      # New step to verify requirements
       - name: Verify requirements.txt
         run: |
           echo "Contents of requirements.txt:"
           cat requirements.txt
           echo ""
-          
-      - name: Install dependencies
+
+      - name: Pre-install numpy (required before scikit-learn)
         run: |
-          pip install --use-pep517 --no-build-isolation -r requirements.txt
+          pip install numpy==1.24.4
+
+      - name: Install remaining dependencies
+        run: |
+          pip install -r requirements.txt
 
       - name: Run Pytest
         run: |
