@@ -1,63 +1,78 @@
 name: IRIS Pipeline CI
-true:
+
+on:
   push:
     branches:
-    - main
-    - dev
+      - main
+      - dev
   pull_request:
     branches:
-    - main
+      - main
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.9'
-    - name: Install system build dependencies
-      run: 'sudo apt-get update
+      - uses: actions/checkout@v4
 
-        sudo apt-get install -y build-essential python3-dev gfortran
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-dev gfortran
+          
+      - name: Upgrade pip tools
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
 
-        '
-    - name: Upgrade pip tools
-      run: 'python -m pip install --upgrade pip setuptools wheel
+      # New step to verify requirements
+      - name: Verify requirements.txt
+        run: |
+          echo "Contents of requirements.txt:"
+          cat requirements.txt
+          echo ""
+          
+      - name: Install dependencies
+        run: |
+          pip install --use-pep517 --no-build-isolation -r requirements.txt
 
-        '
-    - name: Verify requirements.txt
-      run: 'echo "Contents of requirements.txt:"
+      - name: Run Pytest
+        run: |
+          pytest --junitxml=pytest-report.xml
+        continue-on-error: true
 
-        cat requirements.txt
+      - name: Run Pipeline and generate metrics
+        run: |
+          python pipeline.py
+        continue-on-error: true
 
-        echo ""
+      - name: Setup CML
+        uses: iterative/setup-cml@v2
 
-        '
-    - name: Install dependencies
-      run: 'pip install --use-pep517 --no-build-isolation -r requirements.txt
+      - name: Create CML Report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## CI Report for IRIS Pipeline" > report.md
+          echo "### Pytest Results" >> report.md
+          if [ -f pytest-report.xml ]; then
+            echo '```xml' >> report.md
+            cat pytest-report.xml >> report.md
+            echo '```' >> report.md
+          else
+            echo "Pytest report not found." >> report.md
+          fi
 
-        '
-    - name: Run Pytest
-      run: 'pytest --junitxml=pytest-report.xml
-
-        '
-      continue-on-error: true
-    - name: Run Pipeline and generate metrics
-      run: 'python pipeline.py
-
-        '
-      continue-on-error: true
-    - name: Setup CML
-      uses: iterative/setup-cml@v2
-    - name: Create CML Report
-      env:
-        REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: "echo \"## CI Report for IRIS Pipeline\" > report.md\necho \"### Pytest\
-        \ Results\" >> report.md\nif [ -f pytest-report.xml ]; then\n  echo '```xml'\
-        \ >> report.md\n  cat pytest-report.xml >> report.md\n  echo '```' >> report.md\n\
-        else\n  echo \"Pytest report not found.\" >> report.md\nfi\n\necho \"### Pipeline\
-        \ Execution Metrics\" >> report.md\nif [ -f metrics.txt ]; then\n  echo '```'\
-        \ >> report.md\n  cat metrics.txt >> report.md\n  echo '```' >> report.md\n\
-        else\n  echo \"Pipeline metrics not generated.\" >> report.md\nfi\ncml comment\
-        \ create report.md"
+          echo "### Pipeline Execution Metrics" >> report.md
+          if [ -f metrics.txt ]; then
+            echo '```' >> report.md
+            cat metrics.txt >> report.md
+            echo '```' >> report.md
+          else
+            echo "Pipeline metrics not generated." >> report.md
+          fi
+          cml comment create report.md
