@@ -2,5 +2,6 @@ pandas
 numpy==1.24.2
 scikit-learn
 joblib
-pytest
 cml
+setuptools>=60,<81
+pytest>=7.0.0
